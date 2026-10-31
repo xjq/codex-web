@@ -1,4 +1,5 @@
 import { emitRendererEvent, isRecord } from "./shim";
+import { getBasePrefix } from "./routes";
 
 type CodexFetchMessage = {
   body?: string;
@@ -88,7 +89,10 @@ async function uploadFiles(files: File[]) {
     return [];
   }
 
-  const uploadUrl = new URL("/__backend/upload", window.location.href);
+  const uploadUrl = new URL(
+    `${getBasePrefix()}/__backend/upload`,
+    window.location.href,
+  );
   const formData = new FormData();
 
   for (const file of files) {

@@ -310,6 +310,15 @@ const appBase = {
   },
   getPath(name: string): string {
     log("app.getPath", [name]);
+    // `documents` is what the upstream shell asks for when it creates the
+    // default workspace root for a new project (createDefaultWorkspaceRoot
+    // joins it with the app's product name). Returning cwd here made new
+    // projects land inside this repository. Point it at a real projects
+    // directory instead; override with CODEX_WEB_PROJECTS_DIR.
+    if (name === "documents") {
+      const home = process.env.HOME ?? process.cwd();
+      return process.env.CODEX_WEB_PROJECTS_DIR ?? `${home}/projects`;
+    }
     return process.cwd();
   },
   getAppMetrics(): unknown[] {
@@ -704,12 +713,24 @@ class Menu {
 
   popup(...args: unknown[]): void {
     log("Menu.popup", args);
+    // There is no native menu to render here. Electron calls this callback
+    // when the menu is dismissed and callers await it to learn the selection,
+    // so without it they would hang forever. Report "nothing selected".
+    const [options] = args as [Record<string, unknown>?];
+    const callback = options?.callback;
+    if (typeof callback === "function") {
+      setTimeout(callback as () => void, 0);
+    }
   }
 }
 
+let menuItemCommandIdCounter = 0;
+
 class MenuItem {
+  accelerator?: string;
   checked?: boolean;
   click?: (...args: unknown[]) => unknown;
+  commandId?: number;
   enabled?: boolean;
   id?: string;
   label?: string;
@@ -724,20 +745,31 @@ class MenuItem {
     if (!options || typeof options !== "object") {
       return;
     }
+    this.accelerator =
+      typeof options.accelerator === "string" ? options.accelerator : undefined;
     this.checked =
       typeof options.checked === "boolean" ? options.checked : undefined;
     this.click =
       typeof options.click === "function"
         ? (options.click as (...args: unknown[]) => unknown)
         : undefined;
-    this.enabled =
-      typeof options.enabled === "boolean" ? options.enabled : undefined;
+    // Electron defaults these to true. The shell builds its browser menu bar
+    // from a snapshot that filters on `visible`, skips leaf items whose `type`
+    // is not `normal`, and gates clicks on `enabled`; leaving them undefined
+    // silently drops every item that does not set them explicitly.
+    this.enabled = options.enabled !== false;
+    // Electron assigns a unique integer commandId to every MenuItem at
+    // construction and routes menu clicks by it; the shell's browser menu bar
+    // relies on the same contract (snapshot -> nativeCommandId -> invokeItem).
+    this.commandId =
+      typeof options.commandId === "number"
+        ? options.commandId
+        : ++menuItemCommandIdCounter;
     this.id = typeof options.id === "string" ? options.id : undefined;
     this.label = typeof options.label === "string" ? options.label : undefined;
     this.role = typeof options.role === "string" ? options.role : undefined;
-    this.type = typeof options.type === "string" ? options.type : undefined;
-    this.visible =
-      typeof options.visible === "boolean" ? options.visible : undefined;
+    this.type = typeof options.type === "string" ? options.type : "normal";
+    this.visible = options.visible !== false;
 
     const submenu = options.submenu;
     if (Array.isArray(submenu)) {

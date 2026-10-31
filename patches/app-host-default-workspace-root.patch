@@ -1,0 +1,11 @@
+--- a/.vite/build/main-C5K7o1Hr.js
++++ b/.vite/build/main-C5K7o1Hr.js
+@@ -100143,7 +100143,7 @@
+       );
+     let r = this.sanitizeDefaultProjectName(e),
+       i = await this.findAvailableDefaultWorkspaceRoot(
+-        p.join(l.app.getPath(`documents`), `ChatGPT`),
++        l.app.getPath(`documents`),
+         r,
+         void 0,
+       );

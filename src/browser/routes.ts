@@ -1,5 +1,23 @@
+// codex-web may be served from a subpath (e.g. behind a reverse proxy at
+// /codexweb/). the prefix is derived from the current url so browser history
+// paths stay inside the deployed subtree.
+export function getBasePrefix(): string {
+  const withoutThread = window.location.pathname.replace(
+    /\/thread\/[^/]+\/?$/,
+    "",
+  );
+  return withoutThread.replace(/\/+$/, "");
+}
+
+function toRelativePathname(pathname: string): string {
+  const prefix = getBasePrefix();
+  const relative = pathname.slice(prefix.length);
+  return relative === "" ? "/" : relative;
+}
+
 export function mapBrowserPathToInitialRoute(pathname: string, search: string) {
-  if (pathname === "/share/receive" && search) {
+  const relative = toRelativePathname(pathname);
+  if (relative === "/share/receive" && search) {
     const params = new URLSearchParams(search);
 
     const prompt = ["title", "text", "url"]
@@ -13,12 +31,12 @@ export function mapBrowserPathToInitialRoute(pathname: string, search: string) {
       memoryPath: prompt
         ? `/?${new URLSearchParams({ prompt }).toString()}`
         : "/",
-      browserPath: "/",
+      browserPath: `${getBasePrefix()}/`,
     };
   }
 
   return {
-    memoryPath: mapBrowserPathToRoute(pathname),
+    memoryPath: mapBrowserPathToRoute(relative),
   };
 }
 
@@ -36,8 +54,10 @@ function mapBrowserPathToRoute(pathname: string): string {
 }
 
 export function mapMemoryPathToBrowserPath(pathname: string) {
+  const prefix = getBasePrefix();
+
   if (pathname === "/") {
-    return { path: "/", titleChange: "Codex" };
+    return { path: `${prefix}/`, titleChange: "Codex" };
   }
 
   const match = pathname.match(/^\/local\/([^/?#]+)$/);
@@ -45,7 +65,7 @@ export function mapMemoryPathToBrowserPath(pathname: string) {
     return null;
   }
 
-  return { path: `/thread/${encodeURIComponent(match[1])}` };
+  return { path: `${prefix}/thread/${encodeURIComponent(match[1])}` };
 }
 
 export function dispatchNavigateToRoute(path: string): void {
@@ -60,5 +80,7 @@ export function dispatchNavigateToRoute(path: string): void {
 }
 
 window.addEventListener("popstate", () => {
-  dispatchNavigateToRoute(mapBrowserPathToRoute(window.location.pathname));
+  dispatchNavigateToRoute(
+    mapBrowserPathToRoute(toRelativePathname(window.location.pathname)),
+  );
 });

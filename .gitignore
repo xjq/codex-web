@@ -1,3 +1,9 @@
 node_modules/
 scratch*/
 sentry
+
+# runtime pollution: userData resolves to the repo dir (see AGENTS.MD codex-web 节)
+artifact-sessions/
+statsig-state.json
+statsig-state.json.bak
+browser-sidebar-page-states.json
